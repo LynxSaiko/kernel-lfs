@@ -1,30 +1,26 @@
-#!/bin/bash
-
-# Pastikan Anda menjalankan skrip ini dengan hak akses root atau gunakan sudo
-
-# Langkah 4: Membuat `mozconfig` untuk Build yang Ringan
-echo "Membuat konfigurasi mozconfig..."
 cat > mozconfig << "EOF"
-# Menonaktifkan Wi-Fi geolokasi (jika tidak diperlukan)
+# If you have a multicore machine, all cores will be used by default.
+
+# If you have installed (or will install) wireless-tools, and you wish
+# to use geolocation web services, comment out this line
 ac_add_options --disable-necko-wifi
 
-# Menonaktifkan penggunaan hardware acceleration (WebRender)
-ac_add_options --disable-webrender
+# API Keys for geolocation APIs - necko-wifi (above) is required for MLS
+# Uncomment the following line if you wish to use Mozilla Location Service
+#ac_add_options --with-mozilla-api-keyfile=$PWD/mozilla-key
 
-# Menonaktifkan WebGL (meminimalkan penggunaan GPU)
-ac_add_options --disable-webgl
+# Uncomment the following line if you wish to use Google's geolocation API
+# (needed for use with saved maps with Google Maps)
+#ac_add_options --with-google-location-service-api-keyfile=$PWD/google-key
 
-# Menonaktifkan crash reporter dan updater
-ac_add_options --disable-crashreporter
-ac_add_options --disable-updater
+# startup-notification is required since firefox-78
 
-# Menonaktifkan pengumpulan data (telemetri) Mozilla
-unset MOZ_TELEMETRY_REPORTING
+# Uncomment the following option if you have not installed PulseAudio and
+# want to use alsa instead
+#ac_add_options --enable-audio-backends=alsa
 
-# Menonaktifkan tes (hemat waktu dan ruang disk)
-ac_add_options --disable-tests
-
-# Menggunakan sistem pustaka jika sudah terpasang
+# Comment out following options if you have not installed
+# recommended dependencies:
 ac_add_options --with-system-icu
 ac_add_options --with-system-libevent
 ac_add_options --with-system-libvpx
@@ -32,45 +28,64 @@ ac_add_options --with-system-nspr
 ac_add_options --with-system-nss
 ac_add_options --with-system-webp
 
-# Mengaktifkan optimasi build dan menonaktifkan debug symbols
+# Unlike with thunderbird, although using the gold linker can
+# save four megabytes in the installed file it does not make
+# the build faster.
+
+# libdavid (av1 decoder) requires nasm. Uncomment this if nasm
+# has not been installed. Do not uncomment this if you have
+# ffmpeg-5 installed.
+#ac_add_options --disable-av1
+
+# You cannot distribute the binary if you do this
+ac_add_options --enable-official-branding
+
+# Stripping is now enabled by default.
+# Uncomment these lines if you need to run a debugger:
+#ac_add_options --disable-strip
+#ac_add_options --disable-install-strip
+
+# Disabling debug symbols makes the build much smaller and a little
+# faster. Comment this if you need to run a debugger. Note: This is
+# required for compilation on i686.
 ac_add_options --disable-debug-symbols
-ac_add_options --enable-optimize
 
-# Menonaktifkan WebAssembly sandboxed libraries untuk menghindari penurunan kinerja
-ac_add_options --without-wasm-sandboxed-libraries
+# The elf-hack is reported to cause failed installs (after successful builds)
+# on some machines. It is supposed to improve startup time and it shrinks
+# libxul.so by a few MB - comment this if you know your machine is not affected.
+ac_add_options --disable-elf-hack
 
-# Menonaktifkan PulseAudio dan ALSA (audio backend tidak digunakan)
-ac_add_options --enable-audio-backends=none
-
-# Konfigurasi default
+# The BLFS editors recommend not changing anything below this line:
 ac_add_options --prefix=/usr
 ac_add_options --enable-application=browser
+ac_add_options --disable-crashreporter
+ac_add_options --disable-updater
+# enabling the tests will use a lot more space and significantly
+# increase the build time, for no obvious benefit.
+ac_add_options --disable-tests
+
+# The default level of optimization again produces a working build with gcc.
+ac_add_options --enable-optimize
+
+ac_add_options --enable-system-ffi
+ac_add_options --enable-system-pixman
+
+ac_add_options --with-system-jpeg
+ac_add_options --with-system-png
+ac_add_options --with-system-zlib
+
+# Using sandboxed wasm libraries has been moved to all builds instead
+# of only mozilla automation builds. It requires extra llvm packages
+# and was reported to seriously slow the build. Disable it.
+ac_add_options --without-wasm-sandboxed-libraries
+
+# The following option unsets Telemetry Reporting. With the Addons Fiasco,
+# Mozilla was found to be collecting user's data, including saved passwords and
+# web form data, without users consent. Mozilla was also found shipping updates
+# to systems without the user's knowledge or permission.
+# As a result of this, use the following command to permanently disable
+# telemetry reporting in Firefox.
+unset MOZ_TELEMETRY_REPORTING
+
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/firefox-build-dir
 EOF
-
-# Langkah 5: Mengatasi Masalah dengan `cbindgen`
-echo "Mengatasi masalah dengan cbindgen..."
-sed -i '/ROOT_CLIP_CHAIN/d' gfx/webrender_bindings/webrender_ffi.h
-
-# Langkah 6: Mengonfigurasi Build
-echo "Mengonfigurasi build..."
-export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=system
-export MOZBUILD_STATE_PATH=${PWD}/mozbuild
-./mach configure
-
-# Langkah 7: Memulai Proses Build
-echo "Memulai proses build..."
-./mach build -j$(nproc)
-
-# Langkah 8: Instalasi Firefox
-echo "Instalasi Firefox..."
-MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=system ./mach install
-
-# Langkah 9: Pembersihan Variabel Lingkungan
-echo "Membersihkan variabel lingkungan..."
-unset MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE MOZBUILD_STATE_PATH
-
-# Langkah 10: Verifikasi Pengaturan
-echo "Verifikasi pengaturan Firefox..."
-echo "Buka 'about:support' di Firefox untuk memastikan WebRender dan hardware acceleration telah dinonaktifkan."
-
-echo "Build dan instalasi Firefox selesai!"
