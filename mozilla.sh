@@ -96,7 +96,7 @@ export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=system
 export MOZBUILD_STATE_PATH=${PWD}/mozbuild
 
 ./mach configure                                      
-./mach build
+./mach build -j$(nproc)
 MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=system ./mach install
 unset MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE MOZBUILD_STATE_PATH
 MIMETYPE="text/xml;text/mml;text/html;"                            
